@@ -69,6 +69,20 @@ class ClippedQuadric extends UniformProvider {
       0,  0,  0,  0);
   }
 
+  makePlane() {
+    this.surface.set(
+      0,  0,  0,  0,
+      0,  1,  0,  -1,
+      0,  0,  0,  0,
+      0,  0,  0,  0);
+
+    this.clipper.set(
+      0,  0,  0,  0,
+      0,  1,  0,  -2,
+      0,  0,  0,  0,
+      0,  0,  0,  0);
+  }
+
   // transforms both the surface and the clipper matrices according
   // to the transformation matrix T
   transform(T) {

@@ -62,25 +62,27 @@ class Scene extends UniformProvider {
 
     // scene clipped quadrics management and definition
     this.clippedQuadrics = [];
-    this.clippedQuadrics.push(
-      new ClippedQuadric(this.clippedQuadrics.length, ...this.programs));
-    this.clippedQuadrics[0].makeUnitCylinder();
-    this.clippedQuadrics[0].transform(new Mat4().translate(-2, -2, 0));
 
     this.clippedQuadrics.push(
       new ClippedQuadric(this.clippedQuadrics.length, ...this.programs));
-    this.clippedQuadrics[1].makeUnitSphere();
-    this.clippedQuadrics[1].transform(new Mat4().translate(-2, 2, 0));
+    this.clippedQuadrics[0].makeUnitSphere();
+    this.clippedQuadrics[0].transform(new Mat4().translate(0, 0, 0));
 
     this.clippedQuadrics.push(
       new ClippedQuadric(this.clippedQuadrics.length, ...this.programs));
-    this.clippedQuadrics[2].makeUnitCone();
-    this.clippedQuadrics[2].transform(new Mat4().translate(2, 2, 0));
+    this.clippedQuadrics[1].makePlane();
+    this.clippedQuadrics[1].transform(new Mat4().translate(0, -2, 0));
 
-    this.clippedQuadrics.push(
-      new ClippedQuadric(this.clippedQuadrics.length, ...this.programs));
-    this.clippedQuadrics[3].makeUnitParaboloid();
-    this.clippedQuadrics[3].transform(new Mat4().translate(2, -2, 0));
+    // defining scene lights
+    this.lights = [];
+
+    this.lights.push(new Light(this.lights.length, ...this.programs));
+    this.lights[0].position.set(1, 1, 1, 1);
+    this.lights[0].powerDensity.set(1, 1, 1);
+
+    this.lights.push(new Light(this.lights.length, ...this.programs));
+    this.lights[1].position.set(0, 4, 0, 1);
+    this.lights[1].powerDensity.set(10, 10, 10);
 
     this.addComponentsAndGatherUniforms(...this.programs);
 
@@ -101,6 +103,8 @@ class Scene extends UniformProvider {
     this.timeAtLastFrame = timeAtThisFrame;
     this.time = t;
 
+    this.lights[1].position.set(Math.cos(t), 2, Math.sin(t), 1);
+
     // clear the screen
     gl.clearColor(0.3, 0.0, 0.3, 1.0);
     gl.clearDepth(1.0);
@@ -112,7 +116,7 @@ class Scene extends UniformProvider {
         gameObject.update();
     }
     for(const gameObject of this.gameObjects) {
-        gameObject.draw(this, this.camera, ...this.clippedQuadrics);
+        gameObject.draw(this, this.camera, ...this.clippedQuadrics, ...this.lights);
     }
   }
 }

@@ -26,11 +26,19 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
     mat4 clipper;
   } clippedQuadrics[16];
 
+  uniform struct {
+    vec4 position;
+    vec3 powerDensity;
+  } lights[16];
+
   // ray tracing
   bool findBestHit(vec4 e, vec4 d, out float t, out int index);
   float intersectClippedQuadric(mat4 A, mat4 B,vec4 e, vec4 d);
   float intersectQuadric(mat4 A, vec4 e, vec4 d);
   vec3 quadricSurfaceNormal(vec4 point, mat4 quadric);
+
+  // shading
+  vec3 shade(vec3 normal, vec3 lightDir, vec3 powerDensity, vec3 materialColor);
 
   // procedural texturing
   vec3 procTexture(vec3 position);
@@ -54,9 +62,34 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
       mat4 surface = clippedQuadrics[index].surface;
       vec4 hitPos = e + d * t;
       vec3 normal = quadricSurfaceNormal(hitPos, surface);
+      
       vec3 materialColor = procTexture(hitPos.xyz);
 
-      fragmentColor.rgb += materialColor;
+      // light loop
+      for (int i = 0; i < 2; i++) {
+        vec3 lightDiff = lights[i].position.xyz - hitPos.xyz / hitPos.w * lights[i].position.w;
+        vec3 lightDir = normalize(lightDiff);
+        float distanceSquared = dot(lightDiff, lightDiff);
+        vec3 powerDensity = lights[i].powerDensity / distanceSquared;
+
+        float delta = 0.0001;
+        vec4 shadowStart = hitPos + vec4(delta * normal, 0);
+        vec4 shadowDir = vec4(lightDir, 0);
+
+        float bestShadowT = 0.0;
+        int shadowIndex = 0;
+        bool shadowRayHitSomething = findBestHit(shadowStart, shadowDir, bestShadowT, shadowIndex);
+
+        if(!shadowRayHitSomething ||
+         bestShadowT  * lights[i].position.w > sqrt(dot(lightDiff, lightDiff))) {
+          // to handle both sides of the surface, flip normal towards incoming ray
+          vec3 facingNormal = normal;
+          if(dot(facingNormal, d.xyz) > 0.0) {
+            facingNormal *= -1.0;
+          }
+          fragmentColor.rgb += shade(facingNormal, lightDiff, powerDensity, materialColor);
+        }
+      }
 
       // computing depth from world space hitPos coordinates 
       vec4 ndcHit = hitPos * camera.viewProjMatrix;
@@ -64,7 +97,7 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
     }
     else {
       // nothing hitPos by ray, return enviroment color
-      fragmentColor = texture(material.envTexture, d.xyz);
+      //fragmentColor = texture(material.envTexture, d.xyz);
       gl_FragDepth = 0.9999999;
     }
   }
@@ -87,7 +120,7 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
     int bestIndex = 0;
 
     // for each clipped quadric in our uniform array
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 2; i++) {
       mat4 surface = clippedQuadrics[i].surface;
       mat4 clipper = clippedQuadrics[i].clipper;
 
@@ -198,10 +231,17 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
   }
 
   /*
+  Phong-Blinn reflection model
+  */
+  vec3 shade(vec3 normal, vec3 lightDir, vec3 powerDensity, vec3 materialColor) {
+    float cosa = clamp(dot(lightDir, normal), 0.0, 1.0);
+    return cosa * powerDensity * materialColor;
+  }
+
+  /*
   Procedural wood texturing based on noise function.
   */
   vec3 procTexture(vec3 position) {
-    // procedural parameters
     vec3 color1 = vec3(1.0, 0.0, 0.0);
     vec3 color2 = vec3(0.0, 1.0, 0.0);
     float freq = 2.0;
