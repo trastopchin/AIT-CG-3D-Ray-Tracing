@@ -46,47 +46,71 @@ class Scene extends UniformProvider {
     this.traceQuad = new GameObject(this.traceMesh);
     this.gameObjects.push(this.traceQuad);
 
-    this.slowpokeMaterial = new Material(this.texturedProgram);
-    this.slowpokeMaterial.colorTexture.set(new Texture2D(gl, "media/slowpoke/YadonDh.png"));
-    this.eyeMaterial = new Material(this.texturedProgram);
-    this.eyeMaterial.colorTexture.set(new Texture2D(gl, "media/slowpoke/YadonEyeDh.png"));
-    this.mesh = new MultiMesh(gl, "media/slowpoke/Slowpoke.json", 
-        [this.slowpokeMaterial, this.eyeMaterial]);
-
-    this.avatar =  new GameObject(this.mesh);
-    //this.gameObjects.push(this.avatar);
-
     this.camera = new PerspectiveCamera(...this.programs); 
-    this.camera.position.set(0, 0, 8);
+    this.camera.position.set(0, 2, 8);
+    this.camera.pitch = -0.2;
     this.camera.update();
 
-    // scene clipped quadrics management and definition
+    // scene definition
     this.clippedQuadrics = [];
-
-    this.clippedQuadrics.push(
-      new ClippedQuadric(this.clippedQuadrics.length, ...this.programs));
-    this.clippedQuadrics[0].makeUnitSphere();
-    this.clippedQuadrics[0].transform(new Mat4().translate(0, 0, 0));
-
-    this.clippedQuadrics.push(
-      new ClippedQuadric(this.clippedQuadrics.length, ...this.programs));
-    this.clippedQuadrics[1].makePlane();
-    this.clippedQuadrics[1].transform(new Mat4().translate(0, -2, 0));
-
-    // defining scene lights
     this.lights = [];
 
-    this.lights.push(new Light(this.lights.length, ...this.programs));
-    this.lights[0].position.set(1, 1, 1, 1);
-    this.lights[0].powerDensity.set(1, 1, 1);
+    this.woodenFloor = this.createClippedQuadric();
+    this.woodenFloor.makePlane();
+    this.woodenFloor.transform(new Mat4().translate(0, -2, 0));
+    this.woodenFloor.procMix = 1;
 
-    this.lights.push(new Light(this.lights.length, ...this.programs));
-    this.lights[1].position.set(0, 4, 0, 1);
-    this.lights[1].powerDensity.set(10, 10, 10);
+    this.tree1 = this.createClippedQuadric();
+    this.tree1.makeUnitCone();
+    this.tree1.materialColor.set(0, 1, 0);
+    this.tree1.specularColor.set(0, 0, 0);
+    this.tree2 = this.createClippedQuadric();
+    this.tree2.makeUnitCone();
+    this.tree2.materialColor.set(0, 1, 0);
+    this.tree2.specularColor.set(0, 0, 0);
+    this.tree3 = this.createClippedQuadric();
+    this.tree3.makeUnitCone();
+    this.tree3.materialColor.set(0, 1, 0);
+    this.tree3.specularColor.set(0, 0, 0);
+
+    const t = new Mat4().rotate(Math.PI);
+    t.scale(1, 2, 1);
+    t.translate(0, 1, 0);
+    this.tree1.transform(t);
+    t.scale(0.8, 1, 0.8);
+    t.translate(0, 1, 0);
+    this.tree2.transform(t);
+    t.scale(0.8, 1, 0.8);
+    t.translate(0, 1, 0);
+    this.tree3.transform(t);
+
+    this.point1 = this.createLight();
+    this.point1.powerDensity.set(4, 4, 4);
+
+    this.dir1 = this.createLight();
+    this.dir1.position.set(1, 1, 1, 0);
+    this.dir1.powerDensity.set(1, 1, 1);
+
+    // my code here
 
     this.addComponentsAndGatherUniforms(...this.programs);
 
     gl.enable(gl.DEPTH_TEST);
+  }
+
+  createClippedQuadric() {
+    const clippedQuadric = new ClippedQuadric(this.clippedQuadrics.length, ...this.programs);
+    clippedQuadric.materialColor.set(1, 1, 1);
+    clippedQuadric.specularColor.set(1, 1, 1);
+    clippedQuadric.procMix = 0;
+    this.clippedQuadrics.push(clippedQuadric);
+    return clippedQuadric;
+  }
+
+  createLight() {
+    const light = new Light(this.lights.length, ...this.programs);
+    this.lights.push(light);
+    return light;
   }
 
   resize(gl, canvas) {
@@ -103,7 +127,10 @@ class Scene extends UniformProvider {
     this.timeAtLastFrame = timeAtThisFrame;
     this.time = t;
 
-    this.lights[1].position.set(Math.cos(t), 2, Math.sin(t), 1);
+    // my code here
+    this.point1.position.set(4 * Math.cos(t), 1, 4 * Math.sin(t), 1);
+
+    // my code here
 
     // clear the screen
     gl.clearColor(0.3, 0.0, 0.3, 1.0);

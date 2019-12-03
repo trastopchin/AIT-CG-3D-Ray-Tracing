@@ -24,6 +24,9 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
   uniform struct {
     mat4 surface;
     mat4 clipper;
+    vec3 materialColor;
+    vec3 specularColor;
+    float procMix;
   } clippedQuadrics[16];
 
   uniform struct {
@@ -31,18 +34,17 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
     vec3 powerDensity;
   } lights[16];
 
-  // ray tracing
   bool findBestHit(vec4 e, vec4 d, out float t, out int index);
   float intersectClippedQuadric(mat4 A, mat4 B,vec4 e, vec4 d);
   float intersectQuadric(mat4 A, vec4 e, vec4 d);
   vec3 quadricSurfaceNormal(vec4 point, mat4 quadric);
-
-  // shading
+  vec3 maxPhongBlinn(vec3 normal, vec3 lightDir, vec3 viewDir, vec3 powerDensity, vec3 materialColor, vec3 specularColor, float shininess);
   vec3 shade(vec3 normal, vec3 lightDir, vec3 powerDensity, vec3 materialColor);
-
-  // procedural texturing
-  vec3 procTexture(vec3 position);
+  vec3 procWood(vec3 position);
   float snoise(vec3 r);
+
+  int numClippedQuadrics = 4;
+  int numLights = 2;
 
   /*
   Renders xyz
@@ -62,16 +64,26 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
       mat4 surface = clippedQuadrics[index].surface;
       vec4 hitPos = e + d * t;
       vec3 normal = quadricSurfaceNormal(hitPos, surface);
+      // to handle both sides of the surface, flip normal towards incoming ray
+      if(dot(normal, d.xyz) > 0.0) {
+        normal *= -1.0;
+      }
       
-      vec3 materialColor = procTexture(hitPos.xyz);
+      //vec3 materialColor = procTexture(hitPos.xyz);
+      vec3 materialColor = clippedQuadrics[index].materialColor;
+      vec3 specularColor = clippedQuadrics[index].specularColor;
+      float procMix = clippedQuadrics[index].procMix;
+      materialColor = mix(materialColor, procWood(hitPos.xyz), procMix);
+      float shininess = 100.0;
 
       // light loop
-      for (int i = 0; i < 2; i++) {
+      for (int i = 0; i < numLights; i++) {
         vec3 lightDiff = lights[i].position.xyz - hitPos.xyz / hitPos.w * lights[i].position.w;
         vec3 lightDir = normalize(lightDiff);
         float distanceSquared = dot(lightDiff, lightDiff);
         vec3 powerDensity = lights[i].powerDensity / distanceSquared;
 
+        // cast shadow ray
         float delta = 0.0001;
         vec4 shadowStart = hitPos + vec4(delta * normal, 0);
         vec4 shadowDir = vec4(lightDir, 0);
@@ -80,14 +92,11 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
         int shadowIndex = 0;
         bool shadowRayHitSomething = findBestHit(shadowStart, shadowDir, bestShadowT, shadowIndex);
 
+        // if ray didnt hit anything or no occluder
         if(!shadowRayHitSomething ||
          bestShadowT  * lights[i].position.w > sqrt(dot(lightDiff, lightDiff))) {
-          // to handle both sides of the surface, flip normal towards incoming ray
-          vec3 facingNormal = normal;
-          if(dot(facingNormal, d.xyz) > 0.0) {
-            facingNormal *= -1.0;
-          }
-          fragmentColor.rgb += shade(facingNormal, lightDiff, powerDensity, materialColor);
+          
+          fragmentColor.rgb += maxPhongBlinn(normal, lightDir, -d.xyz, powerDensity, materialColor, specularColor, shininess);
         }
       }
 
@@ -97,7 +106,7 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
     }
     else {
       // nothing hitPos by ray, return enviroment color
-      //fragmentColor = texture(material.envTexture, d.xyz);
+      fragmentColor = texture(material.envTexture, d.xyz);
       gl_FragDepth = 0.9999999;
     }
   }
@@ -120,7 +129,7 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
     int bestIndex = 0;
 
     // for each clipped quadric in our uniform array
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < numClippedQuadrics; i++) {
       mat4 surface = clippedQuadrics[i].surface;
       mat4 clipper = clippedQuadrics[i].clipper;
 
@@ -231,7 +240,23 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
   }
 
   /*
-  Phong-Blinn reflection model
+  Maximum Phong-Blinn reflection model.
+  */
+  vec3 maxPhongBlinn(vec3 normal, vec3 lightDir, vec3 viewDir, vec3 powerDensity, vec3 materialColor, vec3 specularColor, float shininess) {
+    float cosa = clamp(dot(lightDir, normal), 0.0, 1.0);
+    float cosb = clamp(dot(viewDir, normal), 0.0, 1.0);
+
+    vec3 diffuse = cosa * powerDensity * materialColor;
+
+    vec3 halfway = normalize(viewDir + lightDir);
+    float cosDelta = clamp(dot(halfway, normal), 0.0, 1.0);
+    vec3 specular = powerDensity * specularColor * pow(cosDelta, shininess);
+
+    return diffuse + specular * cosa / max(cosb, cosa);
+  }
+
+  /*
+  Simple diffuse reflection model.
   */
   vec3 shade(vec3 normal, vec3 lightDir, vec3 powerDensity, vec3 materialColor) {
     float cosa = clamp(dot(lightDir, normal), 0.0, 1.0);
@@ -241,11 +266,11 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
   /*
   Procedural wood texturing based on noise function.
   */
-  vec3 procTexture(vec3 position) {
-    vec3 color1 = vec3(1.0, 0.0, 0.0);
-    vec3 color2 = vec3(0.0, 1.0, 0.0);
+  vec3 procWood(vec3 position) {
+    vec3 color1 = 5.0 * vec3(0.181, 0.136, 0.089);
+    vec3 color2 = 5.0 * vec3(0.328, 0.270, 0.198);
     float freq = 2.0;
-    float noiseFreq = 3.0;
+    float noiseFreq = 16.0;
     float noiseExp = 4.0;
     float noiseAmp = 5.0;
 
