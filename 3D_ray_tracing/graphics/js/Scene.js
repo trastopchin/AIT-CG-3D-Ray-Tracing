@@ -59,7 +59,22 @@ class Scene extends UniformProvider {
     this.woodenFloor.makePlane();
     this.woodenFloor.transform(new Mat4().translate(0, -2, 0));
     this.woodenFloor.procMix = 1;
+    this.woodenFloor.reflectance.set(0.5, 0.5, 0.5);
 
+    
+    for (let i = -1; i < 2; i+=2) {
+      for (let j = -1; j < 2; j+=2) {
+        const ball = this.createClippedQuadric();
+        
+        ball.makeUnitSphere();
+        ball.transform(new Mat4().scale(1.5, 1, 1));
+        ball.transform(new Mat4().translate(4 + i, 0, j));
+
+        ball.reflectance.set(1, 1, 1);
+        ball.materialColor.set(0, 0, 0);
+      }
+    }
+    
     this.tree1 = this.createClippedQuadric();
     this.tree1.makeUnitCone();
     this.tree1.materialColor.set(0, 1, 0);
@@ -83,13 +98,54 @@ class Scene extends UniformProvider {
     t.scale(0.8, 1, 0.8);
     t.translate(0, 1, 0);
     this.tree3.transform(t);
+    
+
+    for (let i = 0; i < 3; i++) {
+      const snowBall = this.createClippedQuadric();
+      snowBall.makeUnitSphere();
+
+      snowBall.transform(new Mat4().scale(1-i/3, 1-i/3 ,1-i/3).translate(-4, i, 0));
+      if (i === 1) {
+        snowBall.transform(new Mat4().translate(0, 0.2, 0));
+      }
+
+      if (i === 2) {
+        const eye1 = this.createClippedQuadric();
+        eye1.makeUnitSphere();
+        eye1.transform(new Mat4()
+          .scale(0.05, 0.05, 0.05)
+          .translate(-4+0.2, i+0.1, 0.25));
+        eye1.materialColor.set(0, 0, 0);
+
+        const eye2 = this.createClippedQuadric();
+        eye2.makeUnitSphere();
+        eye2.transform(new Mat4()
+          .scale(0.05, 0.05, 0.05)
+          .translate(-4-0.2, i+0.1, 0.25));
+        eye2.materialColor.set(0, 0, 0);
+
+        const nose = this.createClippedQuadric();
+        nose.makeUnitCone();
+        nose.transform(new Mat4()
+          .scale(0.1, 1, 0.1)
+          .rotate(-Math.PI/2, 1, 0, 0)
+          .translate(-4, i, 1));
+
+        nose.materialColor.set(1, 0.75, 0);
+      }
+
+      snowBall.materialColor.set(1, 1, 1);
+      snowBall.specularColor.set(0, 0, 0);
+    }
+
+    this.dir1 = this.createLight();
+    this.dir1.position.set(1, 1, 1, 0);
+    this.dir1.powerDensity.set(2, 2, 2);
 
     this.point1 = this.createLight();
     this.point1.powerDensity.set(4, 4, 4);
 
-    this.dir1 = this.createLight();
-    this.dir1.position.set(1, 1, 1, 0);
-    this.dir1.powerDensity.set(1, 1, 1);
+    
 
     // my code here
 
@@ -103,6 +159,7 @@ class Scene extends UniformProvider {
     clippedQuadric.materialColor.set(1, 1, 1);
     clippedQuadric.specularColor.set(1, 1, 1);
     clippedQuadric.procMix = 0;
+    clippedQuadric.reflectance.set(0, 0, 0);
     this.clippedQuadrics.push(clippedQuadric);
     return clippedQuadric;
   }

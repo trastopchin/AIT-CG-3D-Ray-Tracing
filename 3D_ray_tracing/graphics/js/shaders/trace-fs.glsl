@@ -27,6 +27,7 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
     vec3 materialColor;
     vec3 specularColor;
     float procMix;
+    vec3 reflectance;
   } clippedQuadrics[16];
 
   uniform struct {
@@ -43,7 +44,7 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
   vec3 procWood(vec3 position);
   float snoise(vec3 r);
 
-  int numClippedQuadrics = 4;
+  int numClippedQuadrics = 14;
   int numLights = 2;
 
   /*
@@ -53,61 +54,72 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `#version 30
     // ray = e + td
     vec4 e = vec4(camera.position, 1);
     vec4 d = vec4(normalize(rayDir).xyz, 0);
+    vec3 w = vec3(1.0, 1.0, 1.0);
 
-    // determine if scene object ray intersection
-    float t = 0.0;
-    int index = 0;
-    bool hit = findBestHit(e, d, t, index);
+    for (int iteration = 0; iteration < 4; iteration++) {
+      // determine if scene object ray intersection
+      float t = 0.0;
+      int index = 0;
+      bool hit = findBestHit(e, d, t, index);
 
-    // if scene object ray intersection
-    if (hit) {
-      mat4 surface = clippedQuadrics[index].surface;
-      vec4 hitPos = e + d * t;
-      vec3 normal = quadricSurfaceNormal(hitPos, surface);
-      // to handle both sides of the surface, flip normal towards incoming ray
-      if(dot(normal, d.xyz) > 0.0) {
-        normal *= -1.0;
-      }
-      
-      //vec3 materialColor = procTexture(hitPos.xyz);
-      vec3 materialColor = clippedQuadrics[index].materialColor;
-      vec3 specularColor = clippedQuadrics[index].specularColor;
-      float procMix = clippedQuadrics[index].procMix;
-      materialColor = mix(materialColor, procWood(hitPos.xyz), procMix);
-      float shininess = 100.0;
+      // if scene object ray intersection
+      if (hit) {
+        mat4 surface = clippedQuadrics[index].surface;
+        vec4 hitPos = e + d * t;
+        vec3 normal = quadricSurfaceNormal(hitPos, surface);
+        // to handle both sides of the surface, flip normal towards incoming ray
+        if(dot(normal, d.xyz) > 0.0) {
+          normal *= -1.0;
+        }
 
-      // light loop
-      for (int i = 0; i < numLights; i++) {
-        vec3 lightDiff = lights[i].position.xyz - hitPos.xyz / hitPos.w * lights[i].position.w;
-        vec3 lightDir = normalize(lightDiff);
-        float distanceSquared = dot(lightDiff, lightDiff);
-        vec3 powerDensity = lights[i].powerDensity / distanceSquared;
+        //vec3 materialColor = procTexture(hitPos.xyz);
+        vec3 materialColor = clippedQuadrics[index].materialColor;
+        vec3 specularColor = clippedQuadrics[index].specularColor;
+        float procMix = clippedQuadrics[index].procMix;
+        materialColor = mix(materialColor, procWood(hitPos.xyz), procMix);
+        float shininess = 100.0;
 
-        // cast shadow ray
+        // light loop
         float delta = 0.0001;
         vec4 shadowStart = hitPos + vec4(delta * normal, 0);
-        vec4 shadowDir = vec4(lightDir, 0);
+        
+        for (int i = 0; i < numLights; i++) {
+          vec3 lightDiff = lights[i].position.xyz - hitPos.xyz / hitPos.w * lights[i].position.w;
+          vec3 lightDir = normalize(lightDiff);
+          float distanceSquared = dot(lightDiff, lightDiff);
+          vec3 powerDensity = lights[i].powerDensity / distanceSquared;
 
-        float bestShadowT = 0.0;
-        int shadowIndex = 0;
-        bool shadowRayHitSomething = findBestHit(shadowStart, shadowDir, bestShadowT, shadowIndex);
+          // cast shadow ray
+          vec4 shadowDir = vec4(lightDir, 0);
+          float bestShadowT = 0.0;
+          int shadowIndex = 0;
+          bool shadowRayHitSomething = findBestHit(shadowStart, shadowDir, bestShadowT, shadowIndex);
 
-        // if ray didnt hit anything or no occluder
-        if(!shadowRayHitSomething ||
-         bestShadowT  * lights[i].position.w > sqrt(dot(lightDiff, lightDiff))) {
-          
-          fragmentColor.rgb += maxPhongBlinn(normal, lightDir, -d.xyz, powerDensity, materialColor, specularColor, shininess);
+          // if ray didnt hit anything or no occluder
+          if(!shadowRayHitSomething ||
+           bestShadowT  * lights[i].position.w > sqrt(dot(lightDiff, lightDiff))) {
+
+            fragmentColor.rgb += w * maxPhongBlinn(normal, lightDir, -d.xyz, powerDensity, materialColor, specularColor, shininess);
+          }
+
+          // computing depth from world space hitPos coordinates 
+          vec4 ndcHit = hitPos * camera.viewProjMatrix;
+          gl_FragDepth = ndcHit.z / ndcHit.w * 0.5 + 0.5;
+        }
+        e = shadowStart;
+        d = vec4(reflect(d.xyz, normal), 0);
+        w *= clippedQuadrics[index].reflectance;
+
+        if (dot(w, w) < 0.01) {
+          break;
         }
       }
-
-      // computing depth from world space hitPos coordinates 
-      vec4 ndcHit = hitPos * camera.viewProjMatrix;
-      gl_FragDepth = ndcHit.z / ndcHit.w * 0.5 + 0.5;
-    }
-    else {
-      // nothing hitPos by ray, return enviroment color
-      fragmentColor = texture(material.envTexture, d.xyz);
-      gl_FragDepth = 0.9999999;
+      else {
+        // nothing hitPos by ray, return enviroment color
+        fragmentColor.rgb += w * texture(material.envTexture, d.xyz).xyz;
+        w *= 0.0;
+        gl_FragDepth = 0.9999999;
+      }
     }
   }
 

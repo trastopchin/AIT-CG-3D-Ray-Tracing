@@ -87,14 +87,14 @@ class ClippedQuadric extends UniformProvider {
   // transforms both the surface and the clipper matrices according
   // to the transformation matrix T
   transform(T) {
-    T = T.clone();
+    const S = T.clone();
     // transform surface
-    T.invert();               // T is now T-1
-    this.surface.premul(T);
-    this.clipper.premul(T);   // A is now T-1 * A
-    T.transpose();            // T is now T-1T
-    this.surface.mul(T);
-    this.clipper.mul(T);      // A is now A'
+    S.invert();               // T is now T-1
+    this.surface.premul(S);
+    this.clipper.premul(S);   // A is now T-1 * A
+    S.transpose();            // T is now T-1T
+    this.surface.mul(S);
+    this.clipper.mul(S);      // A is now A'
   }
 }
 
