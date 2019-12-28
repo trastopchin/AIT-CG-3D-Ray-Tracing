@@ -1,6 +1,6 @@
 # AIT-CG-3D-Ray-Tracing
 
-Implement a real-time ray tracer depicting a 3D winter holiday scene with realistic lighting. Created as a second milestone of the 3D project for my Computer Graphics course at the Aquincum Instute of Technology the fall of 2019 with professor László Szécsi.
+Implemented a real-time ray tracer depicting a 3D winter holiday scene with realistic lighting. Created as a second milestone of the 3D project for my Computer Graphics course at the Aquincum Instute of Technology the fall of 2019 with professor László Szécsi.
 
 <p align="center">
   <img src="/resources/screenshot01.png" alt="A screenshot of the running project demonstrating each of the completed features." width="800">
