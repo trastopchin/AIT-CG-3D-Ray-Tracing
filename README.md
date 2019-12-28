@@ -2,7 +2,7 @@
 
 Implemented a real-time ray tracer depicting a 3D winter holiday scene with realistic lighting. Created as a second milestone of the 3D project for my Computer Graphics course at the Aquincum Instute of Technology the fall of 2019 with professor László Szécsi.
 
-This ray tracer is set up to render a snowman, a christmas tree, four ideally reflective baubles, a reflective procedural wooden floor, with a directional light and a moving point light.
+This ray tracer is set up to render a snowman, a christmas tree, four ideally reflective baubles, a reflective procedural wooden floor, a directional light, and a moving point light.
 
 <p align="center">
   <img src="/resources/screenshot01.png" alt="A screenshot of the running project demonstrating a snowman, a christmas tree, four ideally reflective baubles, a reflective procedural wooden floor, a directional light, and a point light." width="800">
