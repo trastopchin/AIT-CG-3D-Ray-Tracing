@@ -10,7 +10,15 @@ One should be able to download the [3D_ray_tracing](https://github.com/trastopch
 
 Whereas there is still some JavaScript code that is making this project work, the majority of the ray tracing implementation takes place within the [trace-fs.glsl](https://github.com/trastopchin/AIT-CG-3D-Ray-Tracing/blob/master/3D_ray_tracing/graphics/js/shaders/trace-fs.glsl) fragment shader.
 
-## Completed Features:
+## Implementation Details
+
+* This ray tracer renders implicitly defined quadratic surfaces with point lights, direcitonal lights, the maximum blinn-phong reflection model, shadows, and ideal mirror reflection. The ray tracer handles shadows and ideal reflection by using secondary rays to probe the scene for light occluders and compute the incoming illumination of an ideal reflection.
+
+* By implementing the ray tracing algorithm in a GLSL fragment shader, we are able take advantage of the natural parallelization of the OpenGL rendering pipeline. This is important because we can vastly speed up our algorithm without having to worry about parallelization details.
+
+* As opposed to finding the ray-surface intersection for a certain set of quadric surfaces explicitly, this ray tracer generalizes to solve an arbitrary ray-quadric intersection. The ray tracer handles this by storing the coefficents of a generic quadratic surface in a 4x4 matrix. To determine the associated quadratic surface, we can multiply said 4x4 matrix with the row vector (x y z 1) from the left and the column vector (x y z 1)^T from the right. In this fashion, we can write an `intersectQuadric` function that takes both a quadratic coefficient matrix and a ray which can determine the ray-quadric intersection for that specific quadratic surface. This is useful because we do not have to write and explicitly solve for individual ray-quadric intersections. Furthermore, we can determine the surface normal in terms of this quadratic coefficent matrix too, and so this method naturally works with basic lighting and recursive ray tracing methods.
+
+## Completed Project Features
 
 1. **Point light.** At least one point light source and corresponding properly cast, not just plane-projected shadows should be present.
 
