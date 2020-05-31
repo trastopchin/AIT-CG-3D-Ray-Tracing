@@ -57,7 +57,7 @@ class App{
     };
     window.addEventListener('resize', () => this.resize() );
     window.requestAnimationFrame( () => this.update() );
-  };
+  }
 
   // animation frame update
   update() {
